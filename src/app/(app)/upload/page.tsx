@@ -1,0 +1,7 @@
+import { LockKeyhole, ShieldCheck } from "lucide-react";
+import { UploadDropzone } from "@/components/upload-dropzone";
+
+export const metadata = { title: "Upload exam" };
+export default function UploadPage() {
+  return <div className="mx-auto max-w-3xl"><div className="text-center"><p className="text-sm font-semibold text-primary">New local exam</p><h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Turn your DECA practice exam into an interactive test.</h1><p className="mx-auto mt-4 max-w-2xl text-muted-foreground">We’ll inspect the format, separate questions from the descriptive key, and save the result in this browser—no account or cloud database.</p></div><div className="mt-9"><UploadDropzone /></div><div className="mt-6 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2"><div className="flex gap-3 rounded-xl border bg-card p-4"><LockKeyhole className="mt-0.5 size-4 shrink-0 text-primary" /><p><strong className="text-foreground">Stored on this device.</strong> After parsing, the PDF and all progress live in your browser’s local database.</p></div><div className="flex gap-3 rounded-xl border bg-card p-4"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><p><strong className="text-foreground">No setup.</strong> No Supabase project, user account, or API key is required.</p></div></div><p className="mt-6 text-center text-xs text-muted-foreground">The PDF is sent for one-time parsing, then saved only in this browser. Clearing site data erases local exams, so keep the original PDFs.</p></div>;
+}
