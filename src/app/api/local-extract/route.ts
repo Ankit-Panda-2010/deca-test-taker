@@ -21,9 +21,12 @@ export async function POST(request: Request) {
     const text = pages.map((page) => page.text).join("\n\n");
     if (text.replace(/\s/g, "").length < 500) return NextResponse.json({ error: "This looks like a scanned PDF. Use a text-based copy for the fully local version." }, { status: 422 });
     const verification = classifyDeterministically(text);
-    if (verification.classification === "not_recognized") return NextResponse.json({ error: "This PDF was not recognized as a DECA-style exam.", verification }, { status: 422 });
+    if (verification.classification === "not_recognized") return NextResponse.json({ error: "This PDF was not recognized as a supported multiple-choice exam or question bank.", verification }, { status: 422 });
     const exam = parseDecaExam(pages);
-    return NextResponse.json({ exam, verification, sha256: createHash("sha256").update(bytes).digest("hex") });
+    return NextResponse.json(
+      { exam, verification, sha256: createHash("sha256").update(bytes).digest("hex") },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "The PDF could not be processed." }, { status: 500 });
   }

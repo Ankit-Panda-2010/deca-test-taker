@@ -22,7 +22,7 @@ Then open [http://localhost:3000](http://localhost:3000). Import a PDF and start
 
 ## Supported PDFs
 
-The deterministic parser supports text-based DECA-style exams with numbered multiple-choice questions, A–D options, and an answer or descriptive key. It preserves source page numbers, explanations, and performance indicators when present. Missing keys are shown for review and are never guessed.
+The deterministic parser supports text-based DECA-style exams with numbered multiple-choice questions and question-bank exports with `Question`, `Answer`, `Correct Answer`, and `Rationale` sections. It reads A–D options from each uploaded PDF, preserves source page numbers and explanations, and never substitutes questions from another file. Missing keys are shown for review and are never guessed.
 
 Scanned image-only PDFs are intentionally rejected. Run OCR on the PDF first, then import the searchable copy.
 

@@ -15,4 +15,12 @@ describe("DECA document classification", () => {
     expect(result.classification).toBe("not_recognized");
     expect(result.answerKeyFound).toBe(false);
   });
+
+  it("recognizes a structured question-bank export without calling it DECA", () => {
+    const questions = Array.from({ length: 12 }, (_, index) => `Question ID: item-${index}\nQuestion\nPrompt ${index}\nAnswer\nA. One\nB. Two\nC. Three\nD. Four`).join("\n");
+    const result = classifyDeterministically(questions);
+    expect(result.classification).toBe("needs_review");
+    expect(result.reliablyParseable).toBe(true);
+    expect(result.answerKeyFound).toBe(false);
+  });
 });

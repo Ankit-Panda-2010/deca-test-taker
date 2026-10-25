@@ -20,7 +20,9 @@ export function collectStructuralEvidence(text: string): StructuralEvidence {
     [/\bPERFORMANCE INDICATOR/i, 1, "Performance indicators are referenced"],
     [/\b(?:SAMPLE\s+)?EXAM\b/i, 1, "Exam labeling is present"],
     [/\b[A-D]\.\s+\S+/i, 1, "A-D answer choices were detected"],
-    [/EXAM[—-]KEY|DESCRIPTIVE TEST KEY|ANSWER KEY/i, 2, "A descriptive or answer key was detected"],
+    [/\bQuestion\s+ID\s*:.*\bQuestion\b.*\bAnswer\b/i, 2, "Question-bank sections were detected"],
+    [/EXAM\s*[—–-]\s*KEY|DESCRIPTIVE(?:\s+TEST)?\s+KEY|ANSWER KEY/i, 2, "A descriptive or answer key was detected"],
+    [/\bCorrect\s+Answer\s*:\s*[A-D]\b/i, 2, "Correct-answer labels were detected"],
     [/MBA Research/i, 2, "MBA Research is identified"],
   ];
 
@@ -31,16 +33,17 @@ export function collectStructuralEvidence(text: string): StructuralEvidence {
     }
   }
 
-  const questionMatches = text.match(/(?:^|\n)\s*\d{1,3}\.\s+/gm) ?? [];
-  const questionCount = questionMatches.length;
+  const numberedEntries = text.match(/(?:^|\n)\s*\d{1,3}[.)]\s+/gm) ?? [];
+  const questionBankEntries = text.match(/(?:^|\n)\s*Question\s*(?=\n|$)/gim) ?? [];
+  const questionCount = Math.max(numberedEntries.length, questionBankEntries.length);
   if (questionCount >= 10) {
     score += 2;
-    indicators.push(`${questionCount} numbered entries were detected`);
+    indicators.push(`${questionCount} question entries were detected`);
   } else {
-    conflicts.push("Too few numbered exam entries were detected");
+    conflicts.push("Too few question entries were detected");
   }
 
-  const answerKeyFound = /EXAM[—-]KEY|DESCRIPTIVE TEST KEY|ANSWER KEY/i.test(normalized);
+  const answerKeyFound = /EXAM\s*[—–-]\s*KEY|DESCRIPTIVE(?:\s+TEST)?\s+KEY|ANSWER KEY|Correct\s+Answer\s*:\s*[A-D]/i.test(normalized);
   if (!answerKeyFound) conflicts.push("No answer key heading was found");
 
   return { score, indicators, conflicts, answerKeyFound, questionCount };
