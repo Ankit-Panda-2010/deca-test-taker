@@ -40,9 +40,41 @@ function findBlocks(text: string, pattern: RegExp) {
   }));
 }
 
+function findSequentialQuestionBlocks(text: string) {
+  const candidates = [...text.matchAll(QUESTION_START)]
+    .filter((match) => Number(match[1]) >= 1 && Number(match[1]) <= 100);
+  if (candidates.length <= 1) {
+    return candidates.map((match, index) => ({
+      match,
+      body: text.slice(match.index! + match[0].length, candidates[index + 1]?.index ?? text.length).trim(),
+    }));
+  }
+
+  // Numeric values can begin a wrapped sentence inside a question (for
+  // example, "100. What could John..."). Select the longest consecutive
+  // question-number run on the page before using matches as block boundaries.
+  let selected: RegExpMatchArray[] = [];
+  for (let start = 0; start < candidates.length; start += 1) {
+    const run = [candidates[start]];
+    let expected = Number(candidates[start][1]) + 1;
+    for (let index = start + 1; index < candidates.length; index += 1) {
+      if (Number(candidates[index][1]) === expected) {
+        run.push(candidates[index]);
+        expected += 1;
+      }
+    }
+    if (run.length > selected.length) selected = run;
+  }
+
+  return selected.map((match, index) => ({
+    match,
+    body: text.slice(match.index! + match[0].length, selected[index + 1]?.index ?? text.length).trim(),
+  }));
+}
+
 function parseQuestionPage(page: TextPage): Omit<ExtractedQuestion, "correctAnswer" | "explanation" | "performanceIndicator" | "keySourcePage">[] {
   const text = cleanPage(page.text);
-  const blocks = findBlocks(text, QUESTION_START);
+  const blocks = findSequentialQuestionBlocks(text);
 
   return blocks.flatMap(({ match, body }) => {
     const number = Number(match[1]);
@@ -70,6 +102,37 @@ function parseQuestionPage(page: TextPage): Omit<ExtractedQuestion, "correctAnsw
       warnings,
     }];
   });
+}
+
+const EXAM_LABELS = [
+  { pattern: /^BUSINESS ADMINISTRATION(?: CORE)?$/, category: "BUSINESS ADMINISTRATION", title: "BUSINESS ADMINISTRATION Core Exam" },
+  { pattern: /^BUSINESS MANAGEMENT AND ADMINISTRATION$/, category: "BUSINESS MANAGEMENT AND ADMINISTRATION", title: "BUSINESS MANAGEMENT AND ADMINISTRATION Career Cluster Exam" },
+  { pattern: /^ENTREPRENEURSHIP$/, category: "ENTREPRENEURSHIP", title: "ENTREPRENEURSHIP Exam" },
+  { pattern: /^FINANCE$/, category: "FINANCE", title: "FINANCE Career Cluster Exam" },
+  { pattern: /^HOSPITALITY AND TOURISM$/, category: "HOSPITALITY AND TOURISM", title: "HOSPITALITY AND TOURISM Career Cluster Exam" },
+  { pattern: /^MARKETING$/, category: "MARKETING", title: "MARKETING Career Cluster Exam" },
+  { pattern: /^PERSONAL FINANCIAL LITERACY$/, category: "PERSONAL FINANCIAL LITERACY", title: "PERSONAL FINANCIAL LITERACY Exam" },
+] as const;
+
+function normalizeExamLabel(label: string) {
+  return label
+    .toUpperCase()
+    .replace(/[&+]/g, " AND ")
+    .replace(/\b(?:CAREER\s+)?CLUSTER\b/g, " ")
+    .replace(/^THE\s+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function identifyExam(fullText: string) {
+  const header = fullText.match(/(?:^|\n)Test\s+(\d+)\s+([^\n]+?)\s+EXAM\b/im);
+  const normalized = header ? normalizeExamLabel(header[2]) : null;
+  const known = normalized ? EXAM_LABELS.find(({ pattern }) => pattern.test(normalized)) : null;
+  return {
+    testCode: header?.[1] ?? fullText.match(/Test\s+(\d+)/i)?.[1] ?? null,
+    category: known?.category ?? null,
+    title: known?.title ?? null,
+  };
 }
 
 function parseKeyPage(page: TextPage): Map<number, KeyEntry> {
@@ -215,17 +278,18 @@ export function parseDecaExam(pages: TextPage[]): ExtractedExam {
     if (!seen.has(number)) warnings.push(`Answer key ${number} has no matching question`);
   }
 
-  const careerClusterMatch = fullText.match(/(?:SAMPLE\s+EXAM\s+)?([A-Z &-]+CAREER CLUSTER)/i);
+  const identified = identifyExam(fullText);
+  const careerClusterMatch = fullText.match(/(?:SAMPLE\s+EXAM\s+)?([A-Z &+-]+CAREER CLUSTER)/i);
   const clusterExamMatch = fullText.match(/(?:^|\n)(?:Test\s+\d+\s+|\d{4}\s+HS\s+ICDC\s+)?([A-Z][A-Z &-]+?)\s+(?:CLUSTER|CORE)\s+EXAM\b/im);
-  const testCodeMatch = fullText.match(/Test\s+(\d+)/i);
-  const category = careerClusterMatch?.[1]?.replace(/\s+CAREER CLUSTER/i, "").trim()
+  const fallbackCategory = careerClusterMatch?.[1]?.replace(/\s+CAREER CLUSTER/i, "").trim()
     ?? clusterExamMatch?.[1]?.trim()
     ?? null;
+  const category = identified.category ?? fallbackCategory;
 
   return extractedExamSchema.parse({
-    title: category ? `${category} Career Cluster Exam` : "DECA Practice Exam",
+    title: identified.title ?? (category ? `${category} Career Cluster Exam` : "DECA Practice Exam"),
     category,
-    testCode: testCodeMatch?.[1] ?? null,
+    testCode: identified.testCode,
     pageCount: pages.length,
     questions,
     warnings,

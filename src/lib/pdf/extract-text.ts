@@ -23,15 +23,23 @@ export async function extractPdfText(data: Uint8Array): Promise<TextPage[]> {
   const standardFontDataUrl = pathToFileURL(
     `${path.join(process.cwd(), "node_modules/pdfjs-dist/standard_fonts")}${path.sep}`,
   ).href;
-  const document = await pdfjs.getDocument({ data, standardFontDataUrl }).promise;
-  const pages: TextPage[] = [];
+  // PDF.js transfers the supplied ArrayBuffer to its worker, which detaches the
+  // caller's Uint8Array. Give it an owned copy so identity checks performed by
+  // callers before or after extraction always see the original PDF bytes.
+  const loadingTask = pdfjs.getDocument({ data: data.slice(), standardFontDataUrl });
+  const document = await loadingTask.promise;
 
-  for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
-    const page = await document.getPage(pageNumber);
-    const content = await page.getTextContent();
-    const items = content.items.filter((item): item is typeof item & PdfTextItem => "str" in item);
-    pages.push({ pageNumber, text: joinPdfTextItems(items) });
+  try {
+    const pages: TextPage[] = [];
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      const page = await document.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const items = content.items.filter((item): item is typeof item & PdfTextItem => "str" in item);
+      pages.push({ pageNumber, text: joinPdfTextItems(items) });
+    }
+
+    return pages;
+  } finally {
+    await loadingTask.destroy();
   }
-
-  return pages;
 }

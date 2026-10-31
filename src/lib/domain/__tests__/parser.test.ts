@@ -91,7 +91,7 @@ SOURCE: CO:001 Older performance indicator`;
       { pageNumber: 1, text: oldQuestionPage },
       { pageNumber: 2, text: oldKeyPage },
     ]);
-    expect(exam.title).toBe("BUSINESS ADMINISTRATION Career Cluster Exam");
+    expect(exam.title).toBe("BUSINESS ADMINISTRATION Core Exam");
     expect(exam.questions[0]).toMatchObject({
       text: "Which choice matches the older exam layout?",
       correctAnswer: "B",
@@ -99,5 +99,52 @@ SOURCE: CO:001 Older performance indicator`;
       performanceIndicator: { code: "CO:001" },
     });
     expect(exam.questions[0].options.map((option) => option.text)).toEqual(["First", "Second", "Third", "Fourth"]);
+  });
+
+  it.each([
+    ["BUSINESS ADMINISTRATION CORE", "BUSINESS ADMINISTRATION", "BUSINESS ADMINISTRATION Core Exam"],
+    ["BUSINESS MANAGEMENT AND ADMINISTRATION", "BUSINESS MANAGEMENT AND ADMINISTRATION", "BUSINESS MANAGEMENT AND ADMINISTRATION Career Cluster Exam"],
+    ["ENTREPRENEURSHIP", "ENTREPRENEURSHIP", "ENTREPRENEURSHIP Exam"],
+    ["FINANCE", "FINANCE", "FINANCE Career Cluster Exam"],
+    ["HOSPITALITY & TOURISM", "HOSPITALITY AND TOURISM", "HOSPITALITY AND TOURISM Career Cluster Exam"],
+    ["MARKETING", "MARKETING", "MARKETING Career Cluster Exam"],
+    ["PERSONAL FINANCIAL LITERACY", "PERSONAL FINANCIAL LITERACY", "PERSONAL FINANCIAL LITERACY Exam"],
+  ])("identifies the official %s exam header", (header, category, title) => {
+    const exam = parseDecaExam([{ pageNumber: 1, text: `Test 2468 ${header} EXAM 1
+1. Which option is correct?
+A. First
+B. Second
+C. Third
+D. Fourth` }]);
+    expect(exam).toMatchObject({ category, title, testCode: "2468" });
+  });
+
+  it("does not treat a wrapped numeric sentence as a new question", () => {
+    const exam = parseDecaExam([{
+      pageNumber: 12,
+      text: `Test 1323 HOSPITALITY & TOURISM EXAM 12
+80. Which chart shows a part-to-whole relationship?
+A. Scatter plot
+B. Bar chart
+C. Line graph
+D. Pie chart
+81. John ordered office supplies. The supplier sent the wrong amount even though John requested
+100. What could John have done to prevent this miscommunication?
+A. Completed a purchase order
+B. Asked for less
+C. Waited longer
+D. Sent an invoice`,
+    }, {
+      pageNumber: 30,
+      text: `HOSPITALITY & TOURISM EXAM—KEY
+80. D. Pie chart.
+81. A. Completed a purchase order.`,
+    }]);
+
+    expect(exam.questions.map(({ number }) => number)).toEqual([80, 81]);
+    expect(exam.questions[1]).toMatchObject({
+      text: "John ordered office supplies. The supplier sent the wrong amount even though John requested 100. What could John have done to prevent this miscommunication?",
+      correctAnswer: "A",
+    });
   });
 });
