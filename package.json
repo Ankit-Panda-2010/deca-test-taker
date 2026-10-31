@@ -11,6 +11,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:deca-corpus": "RUN_DECA_CORPUS=1 vitest run src/lib/domain/__tests__/deca-corpus.integration.test.ts --reporter=verbose",
     "test:watch": "vitest"
   },
   "dependencies": {
