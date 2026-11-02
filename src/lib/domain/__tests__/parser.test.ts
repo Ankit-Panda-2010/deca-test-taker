@@ -27,6 +27,30 @@ describe("DECA parser", () => {
     expect(exam.questions[1].correctAnswer).toBe("B");
   });
 
+  it("extracts answer choices arranged in two PDF text columns", () => {
+    const exam = parseDecaExam([
+      { pageNumber: 1, text: `Test 1226 MARKETING CLUSTER EXAM 1
+1. Which option is correct?
+A. First choice C. Third choice
+B. Second choice D. Fourth choice` },
+      { pageNumber: 2, text: `Test 1226 MARKETING CLUSTER EXAM—KEY 1
+1. C
+Third choice. Supporting explanation.
+SOURCE: MK:001 Explain marketing concepts` },
+    ]);
+
+    expect(exam.questions[0]).toMatchObject({
+      number: 1,
+      options: [
+        { id: "A", text: "First choice" },
+        { id: "B", text: "Second choice" },
+        { id: "C", text: "Third choice" },
+        { id: "D", text: "Fourth choice" },
+      ],
+      correctAnswer: "C",
+    });
+  });
+
   it("marks missing answer keys unresolved instead of guessing", () => {
     const exam = parseDecaExam([{ pageNumber: 1, text: questionPage }]);
     expect(exam.questions.every((question) => question.correctAnswer === null)).toBe(true);

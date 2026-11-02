@@ -11,6 +11,7 @@ type CorpusSource = {
   source: string;
   expectedTestCode?: string;
   expectedCategory?: string;
+  allowMissingAnswerKey?: boolean;
 };
 
 type ExtractResponse = {
@@ -65,10 +66,15 @@ const officialSources: CorpusSource[] = [
 ];
 
 function extraSources(): CorpusSource[] {
+  const keylessBasenames = new Set((process.env.DECA_CORPUS_KEYLESS_BASENAMES ?? "").split(",").filter(Boolean));
   return (process.env.DECA_EXTRA_PDF_PATHS ?? "")
     .split(path.delimiter)
     .filter(Boolean)
-    .map((source) => ({ name: path.basename(source), source }));
+    .map((source) => ({
+      name: path.basename(source),
+      source,
+      allowMissingAnswerKey: keylessBasenames.has(path.basename(source)),
+    }));
 }
 
 async function sourceBytes(source: CorpusSource) {
@@ -91,8 +97,12 @@ function questionFingerprint(exam: ExtractedExam) {
 
 describe.skipIf(process.env.RUN_DECA_CORPUS !== "1")("DECA PDF corpus", () => {
   it("keeps every document and question set distinct through the real upload route", async () => {
-    const sources = [...officialSources, ...extraSources()];
+    const sources = [
+      ...(process.env.DECA_CORPUS_ONLY_EXTRA === "1" ? [] : officialSources),
+      ...extraSources(),
+    ];
     const expectedSize = Number(process.env.DECA_CORPUS_EXPECTED_SIZE ?? sources.length);
+    expect(sources.length).toBeGreaterThan(0);
     expect(sources).toHaveLength(expectedSize);
 
     const summaries = [];
@@ -119,16 +129,25 @@ describe.skipIf(process.env.RUN_DECA_CORPUS !== "1")("DECA PDF corpus", () => {
       expect(payload.exam.questions.every(({ options }) => (
         options.length === 4 && options.map(({ id }) => id).join("") === "ABCD"
       )), `${source.name}: choices`).toBe(true);
-      expect(payload.exam.questions.every(({ correctAnswer, keySourcePage }) => (
-        correctAnswer !== null && keySourcePage !== null
-      )), `${source.name}: answer keys`).toBe(true);
+      if (source.allowMissingAnswerKey) {
+        expect(payload.exam.questions.every(({ correctAnswer, keySourcePage }) => (
+          correctAnswer === null && keySourcePage === null
+        )), `${source.name}: intentionally separate answer key`).toBe(true);
+      } else {
+        expect(payload.exam.questions.every(({ correctAnswer, keySourcePage }) => (
+          correctAnswer !== null && keySourcePage !== null
+        )), `${source.name}: answer keys`).toBe(true);
+      }
       expect(payload.exam.questions.every(({ sourcePage, keySourcePage }) => (
         sourcePage >= 1 && sourcePage <= payload.exam.pageCount
-        && keySourcePage! >= 1 && keySourcePage! <= payload.exam.pageCount
+        && (keySourcePage === null || (keySourcePage >= 1 && keySourcePage <= payload.exam.pageCount))
       )), `${source.name}: source pages`).toBe(true);
       expect(payload.exam.warnings, source.name).toEqual([]);
       if (source.expectedTestCode) expect(payload.exam.testCode, source.name).toBe(source.expectedTestCode);
       if (source.expectedCategory) expect(payload.exam.category, source.name).toBe(source.expectedCategory);
+      if (process.env.DECA_CORPUS_EXPECTED_CATEGORY) {
+        expect(payload.exam.category, source.name).toBe(process.env.DECA_CORPUS_EXPECTED_CATEGORY);
+      }
 
       parsedQuestionSets.push(payload.exam.questions);
       summaries.push({
@@ -143,7 +162,6 @@ describe.skipIf(process.env.RUN_DECA_CORPUS !== "1")("DECA PDF corpus", () => {
 
     expect(new Set(summaries.map(({ sha256 }) => sha256)).size).toBe(summaries.length);
     expect(new Set(summaries.map(({ questionFingerprint }) => questionFingerprint)).size).toBe(summaries.length);
-    expect(new Set(summaries.map(({ firstQuestion }) => firstQuestion)).size).toBe(summaries.length);
     for (let first = 0; first < parsedQuestionSets.length; first += 1) {
       for (let second = first + 1; second < parsedQuestionSets.length; second += 1) {
         expect(

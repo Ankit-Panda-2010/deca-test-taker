@@ -20,10 +20,17 @@ const OPTION_START = /(?:^|\n)\s*([A-D])[.)]\s+/g;
 const KEY_START = /(?:^|\n)\s*(\d{1,3})[.)]\s*([A-D])\.?\s+/g;
 const KEY_HEADING = /EXAM\s*[—–-]\s*KEY|^\s*(?:ANSWER|DESCRIPTIVE(?:\s+TEST)?)\s+KEY\s*$/im;
 
+function splitTwoColumnOptions(line: string) {
+  return line
+    .replace(/^(\s*A[.)]\s+.*?)\s+(C[.)]\s+\S.*)$/, "$1\n$2")
+    .replace(/^(\s*B[.)]\s+.*?)\s+(D[.)]\s+\S.*)$/, "$1\n$2");
+}
+
 function cleanPage(text: string) {
   return text
     .replace(/\r/g, "")
     .split("\n")
+    .map(splitTwoColumnOptions)
     .map((line) => line.trimEnd())
     .filter((line) => !HEADER_LINE.test(line.trim()))
     .join("\n")
@@ -81,13 +88,15 @@ function parseQuestionPage(page: TextPage): Omit<ExtractedQuestion, "correctAnsw
     const optionMatches = [...body.matchAll(OPTION_START)];
     if (!number || optionMatches.length === 0) return [];
     const stem = body.slice(0, optionMatches[0].index).replace(/\s*\n\s*/g, " ").trim();
-    const options = optionMatches.map((option, index) => ({
-      id: option[1] as AnswerLetter,
-      text: body
-        .slice(option.index! + option[0].length, optionMatches[index + 1]?.index ?? body.length)
-        .replace(/\s*\n\s*/g, " ")
-        .trim(),
-    }));
+    const options = optionMatches
+      .map((option, index) => ({
+        id: option[1] as AnswerLetter,
+        text: body
+          .slice(option.index! + option[0].length, optionMatches[index + 1]?.index ?? body.length)
+          .replace(/\s*\n\s*/g, " ")
+          .trim(),
+      }))
+      .sort((first, second) => "ABCD".indexOf(first.id) - "ABCD".indexOf(second.id));
     const warnings: string[] = [];
     if (options.length !== 4) warnings.push(`Expected 4 choices; found ${options.length}`);
     if (!stem) warnings.push("Question text is empty");
