@@ -27,6 +27,8 @@ export const extractedExamSchema = z.object({
   title: z.string().min(1),
   category: z.string().nullable(),
   testCode: z.string().nullable(),
+  competitionLevel: z.enum(["District", "Association", "ICDC"]).nullable(),
+  examYear: z.number().int().min(1900).max(2100).nullable(),
   pageCount: z.number().int().positive(),
   questions: z.array(extractedQuestionSchema).min(1),
   warnings: z.array(z.string()),

@@ -143,6 +143,24 @@ D. Fourth` }]);
     expect(exam).toMatchObject({ category, title, testCode: "2468" });
   });
 
+  it.each([
+    ["for District/Regional Use", "District"],
+    ["for State/Province Use", "Association"],
+    ["for International Career Development Conference Use", "ICDC"],
+  ] as const)("identifies %s cover metadata", (levelText, competitionLevel) => {
+    const exam = parseDecaExam([
+      { pageNumber: 1, text: `Competency-Based Competitive Events\nWritten Exam\n${levelText}\nCopyright © 2026 by MBA Research and Curriculum Center` },
+      { pageNumber: 2, text: `Test 2468 MARKETING EXAM 1
+1. Which option is correct?
+A. First
+B. Second
+C. Third
+D. Fourth` },
+    ]);
+
+    expect(exam).toMatchObject({ competitionLevel, examYear: 2026 });
+  });
+
   it("does not treat a wrapped numeric sentence as a new question", () => {
     const exam = parseDecaExam([{
       pageNumber: 12,

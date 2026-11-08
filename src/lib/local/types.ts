@@ -8,6 +8,8 @@ export type LocalExam = {
   originalTitle: string;
   category: string | null;
   testCode: string | null;
+  competitionLevel: "District" | "Association" | "ICDC" | null;
+  examYear: number | null;
   fileName: string;
   fileSize: number;
   fileBlob: Blob;

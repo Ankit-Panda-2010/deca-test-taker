@@ -19,11 +19,27 @@ describe("PDF import identity", () => {
     expect(() => assertMatchingPdfHash(first, second)).toThrow(/did not match the PDF/);
   });
 
-  it("distinguishes DECA exams that otherwise share the same title", () => {
+  it("names DECA exams by category, competition level, and year", () => {
+    expect(importedExamTitle({
+      title: "MARKETING Career Cluster Exam",
+      category: "MARKETING",
+      testCode: "1322",
+      competitionLevel: "District",
+      examYear: 2026,
+    }, "districts_1.pdf")).toBe("Marketing - District - 2026");
+
+    expect(importedExamTitle({
+      title: "HOSPITALITY AND TOURISM Career Cluster Exam",
+      category: "HOSPITALITY AND TOURISM",
+      testCode: "1323",
+      competitionLevel: "ICDC",
+      examYear: 2025,
+    }, "icdc.pdf")).toBe("Hospitality and Tourism - ICDC - 2025");
+  });
+
+  it("keeps the prior unique-title fallback when cover metadata is incomplete", () => {
     expect(importedExamTitle({ title: "MARKETING Career Cluster Exam", testCode: "1322" }, "districts_1.pdf"))
       .toBe("MARKETING Career Cluster Exam · Test 1322");
-    expect(importedExamTitle({ title: "MARKETING Career Cluster Exam", testCode: "1302" }, "districts_2.pdf"))
-      .toBe("MARKETING Career Cluster Exam · Test 1302");
   });
 
   it("detects a stale saved extraction for the same PDF", () => {

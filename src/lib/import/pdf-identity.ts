@@ -13,7 +13,23 @@ export function assertMatchingPdfHash(expected: string, received: string) {
   }
 }
 
-export function importedExamTitle(exam: Pick<ExtractedExam, "title" | "testCode">, fileName: string) {
+type ImportedExamTitleMetadata = Pick<ExtractedExam, "title" | "testCode"> & Partial<
+  Pick<ExtractedExam, "category" | "competitionLevel" | "examYear">
+>;
+
+function titleCaseCategory(category: string) {
+  return category
+    .trim()
+    .toLocaleLowerCase("en-US")
+    .replace(/\b[a-z]/g, (letter) => letter.toLocaleUpperCase("en-US"))
+    .replace(/\bAnd\b/g, "and");
+}
+
+export function importedExamTitle(exam: ImportedExamTitleMetadata, fileName: string) {
+  if (exam.category && exam.competitionLevel && exam.examYear) {
+    return `${titleCaseCategory(exam.category)} - ${exam.competitionLevel} - ${exam.examYear}`;
+  }
+
   const fallback = fileName.replace(/\.pdf$/i, "").trim() || "Imported exam";
   const title = exam.title.trim() || fallback;
   return exam.testCode && !new RegExp(`\\bTest\\s+${exam.testCode}\\b`, "i").test(title)

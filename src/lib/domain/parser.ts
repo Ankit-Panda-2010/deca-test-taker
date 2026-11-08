@@ -144,6 +144,27 @@ function identifyExam(fullText: string) {
   };
 }
 
+function identifyCoverMetadata(firstPageText: string) {
+  let competitionLevel: ExtractedExam["competitionLevel"] = null;
+
+  if (/\b(?:ICDC|International\s+Career\s+Development\s+Conference)\b/i.test(firstPageText)) {
+    competitionLevel = "ICDC";
+  } else if (/\b(?:District\s*\/\s*Regional|Regional\s*\/\s*District|District|Regional)\s+(?:Level|Use)\b/i.test(firstPageText)) {
+    competitionLevel = "District";
+  } else if (
+    /\b(?:State\s*\/\s*(?:Province|Provincial)|(?:Province|Provincial)\s*\/\s*State)\s+Use\b/i.test(firstPageText)
+    || /\b(?:Chartered\s+)?Association(?:[-\s]+Level|\s+Use)\b/i.test(firstPageText)
+  ) {
+    competitionLevel = "Association";
+  }
+
+  const copyrightYear = firstPageText.match(/Copyright\s*(?:©|\(c\))?\s*((?:19|20)\d{2})/i)?.[1];
+  return {
+    competitionLevel,
+    examYear: copyrightYear ? Number(copyrightYear) : null,
+  };
+}
+
 function parseKeyPage(page: TextPage): Map<number, KeyEntry> {
   const text = cleanPage(page.text);
   const blocks = findBlocks(text, KEY_START);
@@ -244,6 +265,8 @@ export function parseDecaExam(pages: TextPage[]): ExtractedExam {
       title,
       category: assessmentMatch?.[2]?.replace(/\s+/g, " ") ?? null,
       testCode: null,
+      competitionLevel: null,
+      examYear: null,
       pageCount: pages.length,
       questions: questionBankQuestions,
       warnings: incompletePages > 0 ? [`${incompletePages} question page${incompletePages === 1 ? "" : "s"} could not be extracted completely`] : [],
@@ -294,11 +317,13 @@ export function parseDecaExam(pages: TextPage[]): ExtractedExam {
     ?? clusterExamMatch?.[1]?.trim()
     ?? null;
   const category = identified.category ?? fallbackCategory;
+  const coverMetadata = identifyCoverMetadata(pages[0]?.text ?? "");
 
   return extractedExamSchema.parse({
     title: identified.title ?? (category ? `${category} Career Cluster Exam` : "DECA Practice Exam"),
     category,
     testCode: identified.testCode,
+    ...coverMetadata,
     pageCount: pages.length,
     questions,
     warnings,

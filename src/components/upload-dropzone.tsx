@@ -68,7 +68,14 @@ export function UploadDropzone() {
           assertMatchingPdfHash(selectedSha256, payload.sha256);
           setState("processing");
           if (existingExam && questionsMatchPdf(existingExam.questions, payload.exam.questions)) {
-            setError(`This exact PDF is already saved as “${existingExam.title}”. Opening the verified copy…`);
+            const updatedTitle = importedExamTitle(payload.exam, selectedFile.name);
+            await db.exams.update(existingExam.id, {
+              title: updatedTitle,
+              competitionLevel: payload.exam.competitionLevel,
+              examYear: payload.exam.examYear,
+              updatedAt: new Date().toISOString(),
+            });
+            setError(`This exact PDF is already saved as “${updatedTitle}”. Opening the verified copy…`);
             setTimeout(() => router.push(`/review/${existingExam.id}`), 600);
             return;
           }
@@ -80,6 +87,8 @@ export function UploadDropzone() {
             originalTitle: payload.exam.title,
             category: payload.exam.category,
             testCode: payload.exam.testCode,
+            competitionLevel: payload.exam.competitionLevel,
+            examYear: payload.exam.examYear,
             fileName: selectedFile.name,
             fileSize: selectedFile.size,
             fileBlob: selectedFile,
